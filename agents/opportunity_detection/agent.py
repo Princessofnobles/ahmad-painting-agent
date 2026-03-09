@@ -3,7 +3,7 @@ Property Opportunity Detection Agent
 Uses AI to score each lead for painting need likelihood.
 """
 import json
-from openai import AsyncOpenAI
+import google.generativeai as genai
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,8 @@ from config.settings import settings, COMPANY_PROFILE
 from database.models import Lead, LeadStatus
 
 
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+genai.configure(api_key=settings.gemini_api_key)
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 # -------------------------------------------------------
@@ -162,13 +163,13 @@ Respond in JSON format:
 }}"""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=500,
-        )
-        result = json.loads(response.choices[0].message.content)
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        result = json.loads(text)
         return result
     except Exception as e:
         logger.error(f"[OpportunityAI] Error for {lead.company_name}: {e}")

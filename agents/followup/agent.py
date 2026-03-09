@@ -4,7 +4,7 @@ Follow-Up Automation Agent
 """
 import json
 from datetime import datetime, timedelta
-from openai import AsyncOpenAI
+import google.generativeai as genai
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.settings import settings, COMPANY_PROFILE
 from database.models import Lead, FollowUp, FollowUpStatus, OutreachChannel, Activity
 
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+genai.configure(api_key=settings.gemini_api_key)
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 # -------------------------------------------------------
@@ -94,12 +95,8 @@ Write the message. Requirements:
 Write only the message text, ready to send."""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=400,
-        )
-        return response.choices[0].message.content.strip()
+        response = model.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         logger.error(f"[FollowUp] Generation error step {step_config['step']}: {e}")
         return _fallback_message(lead, step_config, channel)

@@ -3,14 +3,15 @@ Personalized Outreach Generator Agent
 Creates customized WhatsApp, Email, and LinkedIn messages for each lead.
 """
 import json
-from openai import AsyncOpenAI
+import google.generativeai as genai
 from loguru import logger
 from datetime import datetime
 
 from config.settings import settings, COMPANY_PROFILE
 from database.models import Lead, OutreachMessage, OutreachChannel
 
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+genai.configure(api_key=settings.gemini_api_key)
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 # -------------------------------------------------------
@@ -116,12 +117,8 @@ Write a friendly, professional WhatsApp message that:
 Do NOT use placeholders. Write the complete ready-to-send message."""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=400,
-        )
-        return response.choices[0].message.content.strip()
+        response = model.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         logger.error(f"[Outreach] WhatsApp gen error: {e}")
         return WHATSAPP_TEMPLATE.format(
@@ -164,13 +161,13 @@ Respond in JSON:
 }}"""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=600,
-        )
-        result = json.loads(response.choices[0].message.content)
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        result = json.loads(text)
         return result.get("subject", ""), result.get("body", "")
     except Exception as e:
         logger.error(f"[Outreach] Email gen error: {e}")
@@ -209,12 +206,8 @@ Requirements:
 Write the message (InMail format)."""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-        )
-        return response.choices[0].message.content.strip()
+        response = model.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         logger.error(f"[Outreach] LinkedIn gen error: {e}")
         return LINKEDIN_TEMPLATE.format(

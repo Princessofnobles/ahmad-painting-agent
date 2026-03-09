@@ -7,9 +7,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # OpenAI
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    openai_model: str = Field("gpt-4o", env="OPENAI_MODEL")
+    # Gemini
+    gemini_api_key: str = Field("", env="GEMINI_API_KEY")
 
     # SerpAPI
     serpapi_key: str = Field("", env="SERPAPI_KEY")

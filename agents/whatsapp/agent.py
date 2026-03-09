@@ -3,7 +3,7 @@ WhatsApp Lead Handling Agent
 Processes inbound WhatsApp/email replies and suggests responses.
 """
 import json
-from openai import AsyncOpenAI
+import google.generativeai as genai
 from loguru import logger
 from datetime import datetime
 from sqlalchemy import select
@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config.settings import settings, COMPANY_PROFILE
 from database.models import Lead, LeadStatus, Activity
 
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+genai.configure(api_key=settings.gemini_api_key)
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 # -------------------------------------------------------
@@ -71,13 +72,13 @@ Respond in JSON:
 }}"""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=500,
-        )
-        return json.loads(response.choices[0].message.content)
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text)
     except Exception as e:
         logger.error(f"[WhatsApp Handler] AI error: {e}")
         intent = detect_intent(inbound_message)
@@ -144,12 +145,8 @@ The message should:
 Company phone: {settings.company_phone}"""
 
     try:
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-        )
-        return response.choices[0].message.content.strip()
+        response = model.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         logger.error(f"[WhatsApp] Booking message error: {e}")
         return (
